@@ -1,0 +1,23 @@
+# Ignore dataset and archives
+archive (8)/
+*.csv
+*.zip
+*.rar
+*.tar.gz
+
+# Python cache and virtual environment
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# IDE / system files
+.vscode/
+.DS_Store
+Thumbs.db
