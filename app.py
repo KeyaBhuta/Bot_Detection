@@ -38,6 +38,14 @@ try:
     with open('model_info.pkl', 'rb') as f:
         model_info = pickle.load(f)
     
+    # Try to load label encoders (optional)
+    try:
+        with open('label_encoders.pkl', 'rb') as f:
+            label_encoders = pickle.load(f)
+    except FileNotFoundError:
+        print("Warning: 'label_encoders.pkl' not found. Proceeding without label encoding.")
+        label_encoders = {}
+    
     print("✓ Model and preprocessing objects loaded successfully!")
     
 except FileNotFoundError as e:
@@ -52,16 +60,37 @@ def allowed_file(filename):
 def preprocess_data(df):
     """Preprocess uploaded data to match training data format"""
     try:
+        # Encode categorical columns using saved label encoders if available
+        df_encoded = df.copy()
+        if 'label_encoders' in globals() and isinstance(label_encoders, dict) and len(label_encoders) > 0:
+            for col, encoder in label_encoders.items():
+                if col in df_encoded.columns:
+                    classes = list(getattr(encoder, 'classes_', []))
+                    if len(classes) > 0:
+                        mapping = {cls: idx for idx, cls in enumerate(classes)}
+                        # Map known classes to integers; unseen -> -1
+                        df_encoded[col] = (
+                            df_encoded[col]
+                            .map(mapping)
+                            .fillna(-1)
+                            .astype(int)
+                        )
+        
         # Select only features used in training
-        missing_features = set(feature_names) - set(df.columns)
+        missing_features = set(feature_names) - set(df_encoded.columns)
         if missing_features:
             print(f"Warning: Missing features: {missing_features}")
             # Add missing features with default values
             for feature in missing_features:
-                df[feature] = 0
+                df_encoded[feature] = 0
         
         # Select and order features
-        df_processed = df[feature_names].copy()
+        df_processed = df_encoded[feature_names].copy()
+        
+        # Coerce any remaining non-numeric columns to numeric (unconvertible -> NaN)
+        for col in df_processed.columns:
+            if not np.issubdtype(df_processed[col].dtype, np.number):
+                df_processed[col] = pd.to_numeric(df_processed[col], errors='coerce')
         
         # Handle missing values
         df_processed = df_processed.fillna(df_processed.median(numeric_only=True))
